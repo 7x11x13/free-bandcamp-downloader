@@ -5,7 +5,7 @@ import free_bandcamp_downloader
 setup(
     name='free-bandcamp-downloader',
     version=free_bandcamp_downloader.__version__,
-    packaged=['free_bandcamp_downloader'],
+    packages=find_packages(),
     author='7x11x13',
     install_requires=[
         'selenium',
