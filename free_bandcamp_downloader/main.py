@@ -34,7 +34,6 @@ Formats:
 """
 
 import atexit, time, sys, urllib.request, os
-from logging import DEBUG
 from docopt import docopt
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
@@ -136,42 +135,45 @@ def download_album(url):
     init_driver()
     driver.get(url)
     wait()
-    button = driver.find_element_by_xpath(xpath['buy'])
-    if button.text == 'Free Download':
-        logger.info('Album is Free Download')
-        button.click()
-        wait()
-        return download_file(url)
-    else:
-        # name your price download
-        logger.info('Album is not Free Download')
-        button.click()
-        wait()
-        price_input = driver.find_element_by_xpath(xpath['price'])
-        price_input.click()
-        price_input.send_keys('0')
-        logger.info('Set payment to 0')
-        wait()
-        try:
-            driver.find_element_by_xpath(xpath['download-nyp']).click()
-        except:
-            return f'Album {url} is not free'
-        checkout = driver.find_element_by_xpath(xpath['checkout'])
-        if checkout.text == 'Download Now':
-            checkout.click()
+    try:
+        button = driver.find_element_by_xpath(xpath['buy'])
+        if button.text == 'Free Download':
+            logger.info('Album is Free Download')
+            button.click()
             wait()
             return download_file(url)
         else:
-            logger.info('Album requires email')
-            # fill out info
-            driver.find_element_by_xpath(xpath['email']).send_keys(options['email'])
+            # name your price download
+            logger.info('Album is not Free Download')
+            button.click()
             wait()
-            driver.find_element_by_xpath(xpath['zipcode']).send_keys(options['zipcode'])
+            price_input = driver.find_element_by_xpath(xpath['price'])
+            price_input.click()
+            price_input.send_keys('0')
+            logger.info('Set payment to 0')
             wait()
-            Select(driver.find_element_by_xpath(xpath['country'])).select_by_visible_text(options['country'])
-            wait()
-            checkout.click()
-            logger.info(f'Download link sent to {options["email"]}')
+            try:
+                driver.find_element_by_xpath(xpath['download-nyp']).click()
+            except:
+                return f'Album {url} is not free'
+            checkout = driver.find_element_by_xpath(xpath['checkout'])
+            if checkout.text == 'Download Now':
+                checkout.click()
+                wait()
+                return download_file(url)
+            else:
+                logger.info('Album requires email')
+                # fill out info
+                driver.find_element_by_xpath(xpath['email']).send_keys(options['email'])
+                wait()
+                driver.find_element_by_xpath(xpath['zipcode']).send_keys(options['zipcode'])
+                wait()
+                Select(driver.find_element_by_xpath(xpath['country'])).select_by_visible_text(options['country'])
+                wait()
+                checkout.click()
+                logger.info(f'Download link sent to {options["email"]}')
+    except Exception as e:
+        return e
 
 
 def download_label(url):

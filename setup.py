@@ -5,12 +5,11 @@ import free_bandcamp_downloader
 setup(
     name='free-bandcamp-downloader',
     version=free_bandcamp_downloader.__version__,
-    packaged=find_packages(),
+    packaged=['free_bandcamp_downloader'],
     author='7x11x13',
     install_requires=[
         'selenium',
-        'docopt',
-        'rfc6266'
+        'docopt'
     ],
     entry_points={
         'console_scripts': [
