@@ -18,7 +18,7 @@ py -m pip install git+https://github.com/7x11x13/free-bandcamp-downloader
 ```Usage:
     bcdl-free (-a <URL> | -l <URL>)[--force][-d | --dir <dir>][-e | --email <email>]
         [-z | --zipcode <zipcode>][-c | --country <country>][-f | --format <format>]
-    bcdl-free setdefault [-d | --dir <dir][-e | --email <email>][-z | --zipcode <zipcode>]
+    bcdl-free setdefault [-d | --dir <dir>][-e | --email <email>][-z | --zipcode <zipcode>]
         [-c | --country <country>][-f | --format <format>]
     bcdl-free defaults
     bcdl-free clear

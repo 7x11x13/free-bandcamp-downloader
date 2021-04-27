@@ -2,7 +2,7 @@
 Usage:
     bcdl-free (-a <URL> | -l <URL>)[--force][-d | --dir <dir>][-e | --email <email>]
         [-z | --zipcode <zipcode>][-c | --country <country>][-f | --format <format>]
-    bcdl-free setdefault [-d | --dir <dir][-e | --email <email>][-z | --zipcode <zipcode>]
+    bcdl-free setdefault [-d | --dir <dir>][-e | --email <email>][-z | --zipcode <zipcode>]
         [-c | --country <country>][-f | --format <format>]
     bcdl-free defaults
     bcdl-free clear
@@ -47,6 +47,13 @@ from free_bandcamp_downloader import __version__, config, logger
 arguments = None
 driver = None
 downloaded = set()
+options = {
+    'country': None,
+    'zipcode': None,
+    'email': None,
+    'format': None,
+    'dir': None
+}
 
 # Constants
 xpath = {
@@ -72,14 +79,6 @@ formats = {
     'ALAC': 'ALAC',
     'WAV': 'WAV',
     'AIFF': 'AIFF'
-}
-
-options = {
-    'country': None,
-    'zipcode': None,
-    'email': None,
-    'format': None,
-    'dir': None
 }
 
 def wait():
