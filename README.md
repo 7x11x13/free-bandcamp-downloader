@@ -46,4 +46,5 @@ Formats:
     - Ogg
     - ALAC
     - WAV
-    - AIFF```
+    - AIFF
+```
