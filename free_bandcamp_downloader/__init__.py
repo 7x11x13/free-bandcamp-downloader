@@ -22,7 +22,7 @@ default_config = \
     f"""[free-bandcamp-downloader]
     country = United States
     zipcode = 00000
-    email = 
+    email = auto
     format = FLAC
     dir = .
     download_history_file = {download_history_file}"""

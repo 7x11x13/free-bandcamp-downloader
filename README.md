@@ -1,6 +1,6 @@
 # free-bandcamp-downloader
 
-Download free and $0 minimum albums and tracks from Bandcamp
+Download free and $0 minimum name-your-price albums and tracks from Bandcamp (including ones that are sent to email)
 
 ## Installation
 
@@ -15,7 +15,8 @@ py -m pip install git+https://github.com/7x11x13/free-bandcamp-downloader
 
 ## Usage
 
-```Usage:
+```
+Usage:
     bcdl-free (-a <URL> | -l <URL>)[--force][-d | --dir <dir>][-e | --email <email>]
         [-z | --zipcode <zipcode>][-c | --country <country>][-f | --format <format>]
     bcdl-free setdefault [-d | --dir <dir>][-e | --email <email>][-z | --zipcode <zipcode>]
@@ -36,7 +37,7 @@ Options:
     -d --dir <dir>              Set download directory
     -c --country <country>      Set country
     -z --zipcode <zipcode>      Set zipcode
-    -e --email <email>          Set email
+    -e --email <email>          Set email (set to 'auto' to automatically download from a disposable email)
     -f --format <format>        Set format
 Formats:
     - FLAC

@@ -20,7 +20,7 @@ Options:
     -d --dir <dir>              Set download directory
     -c --country <country>      Set country
     -z --zipcode <zipcode>      Set zipcode
-    -e --email <email>          Set email
+    -e --email <email>          Set email (set to 'auto' to automatically download from a disposable email)
     -f --format <format>        Set format
 Formats:
     - FLAC
@@ -33,7 +33,7 @@ Formats:
     - AIFF
 """
 
-import atexit, time, sys, urllib.request, os
+import atexit, time, sys, urllib.request, os, re
 from docopt import docopt
 from guerrillamail import GuerrillaMailSession
 from selenium import webdriver
@@ -47,6 +47,8 @@ from free_bandcamp_downloader import __version__, config, logger
 # Global variables
 arguments = None
 driver = None
+mail_session = None
+expected_emails = 0
 downloaded = set()
 options = {
     'country': None,
@@ -57,6 +59,9 @@ options = {
 }
 
 # Constants
+
+link_regex = re.compile('<a href="(?P<url>http[^"]*)">')
+
 xpath = {
     'buy': '//*[@class="ft compound-button main-button"]/button[@class="download-link buy-link"]',
     'price': '//input[@id="userPrice"]',
@@ -85,6 +90,12 @@ formats = {
 def wait():
     time.sleep(1)
 
+def init_email():
+    global mail_session
+    if not mail_session and (not options['email'] or options['email'] == 'auto'):
+        mail_session = GuerrillaMailSession()
+        options['email'] = mail_session.get_session_state()['email_address']
+
 def init_driver():
     global driver
     if not driver:
@@ -99,7 +110,7 @@ def init_downloaded():
         for line in f:
             downloaded.add(line.strip())
 
-def download_file(page_url):
+def download_file(page_url=None):
     logger.info('On download page')
     driver.find_element_by_xpath(xpath['formats']).click()
     wait()
@@ -125,9 +136,10 @@ def download_file(page_url):
     response.close()
     logger.info(f'Downloaded {os.path.join(options["dir"], name)}')
     # successfully downloaded file, add to download history
-    downloaded.add(page_url)
-    with open(config.get('download_history_file'), 'a') as f:
-        f.write(f'{page_url}\n')
+    if page_url:
+        downloaded.add(page_url)
+        with open(config.get('download_history_file'), 'a') as f:
+            f.write(f'{page_url}\n')
 
 def download_album(url):
     if url in downloaded and not arguments['--force']:
@@ -162,6 +174,7 @@ def download_album(url):
                 wait()
                 return download_file(url)
             else:
+                init_email()
                 logger.info('Album requires email')
                 # fill out info
                 driver.find_element_by_xpath(xpath['email']).send_keys(options['email'])
@@ -172,6 +185,12 @@ def download_album(url):
                 wait()
                 checkout.click()
                 logger.info(f'Download link sent to {options["email"]}')
+                global expected_emails
+                expected_emails += 1
+                downloaded.add(url)
+                with open(config.get('download_history_file'), 'a') as f:
+                    f.write(f'{url}\n')
+
     except Exception as e:
         return e
 
@@ -192,7 +211,6 @@ def main():
     global arguments
     arguments = docopt(__doc__, version=__version__)
     if arguments['-a'] or arguments['-l']:
-        init_downloaded()
         # set options
         for option in options:
             arg = f'--{option}'
@@ -206,6 +224,7 @@ def main():
         if options['format'] not in formats:
             logger.error(f'{options["format"]} is not a valid format. See "bcdl-free -h" for valid formats')
             sys.exit(1)
+        init_downloaded()
     if arguments['-a']:
         err = download_album(arguments['-a'])
         if err:
@@ -224,7 +243,24 @@ def main():
     elif arguments['clear']:
         with open(config.get('download_history_file'), 'w'):
             pass
+    # download emailed albums
+    checked_ids = set()
+    global expected_emails
+    logger.info(f'Waiting for {expected_emails} emails from bandcamp')
+    while expected_emails > 0:
+        time.sleep(10)
+        for email in mail_session.get_email_list():
+            if email.guid not in checked_ids:
+                checked_ids.add(email.guid)
+                if email.sender == 'noreply@bandcamp.com' and 'download' in email.subject:
+                    logger.info(f'Received email "{email.subject}"')
+                    email = mail_session.get_email(email.guid)
+                    match = link_regex.search(email.body)
+                    if match:
+                        download_url = match.group('url')
+                        driver.get(download_url)
+                        download_file()
+                        expected_emails -= 1
     
-
 if __name__ == '__main__':
     main()
