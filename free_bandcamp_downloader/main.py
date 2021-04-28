@@ -35,6 +35,7 @@ Formats:
 
 import atexit, time, sys, urllib.request, os
 from docopt import docopt
+from guerrillamail import GuerrillaMailSession
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support import expected_conditions as EC
@@ -89,7 +90,7 @@ def init_driver():
     if not driver:
         options = Options()
         options.add_argument('--headless')
-        driver = webdriver.Firefox(firefox_options=options)
+        driver = webdriver.Firefox(firefox_options=options, service_log_path=os.devnull)
         atexit.register(driver.quit)
         driver.implicitly_wait(10)
 

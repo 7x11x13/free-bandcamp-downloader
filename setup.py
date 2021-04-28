@@ -9,7 +9,8 @@ setup(
     author='7x11x13',
     install_requires=[
         'selenium',
-        'docopt'
+        'docopt',
+        'python-guerrillamail'
     ],
     entry_points={
         'console_scripts': [
