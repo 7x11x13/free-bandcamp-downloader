@@ -249,18 +249,21 @@ def main():
     logger.info(f'Waiting for {expected_emails} emails from bandcamp')
     while expected_emails > 0:
         time.sleep(10)
-        for email in mail_session.get_email_list():
-            if email.guid not in checked_ids:
-                checked_ids.add(email.guid)
-                if email.sender == 'noreply@bandcamp.com' and 'download' in email.subject:
-                    logger.info(f'Received email "{email.subject}"')
-                    email = mail_session.get_email(email.guid)
-                    match = link_regex.search(email.body)
-                    if match:
-                        download_url = match.group('url')
-                        driver.get(download_url)
-                        download_file()
-                        expected_emails -= 1
+        try:
+            for email in mail_session.get_email_list():
+                if email.guid not in checked_ids:
+                    checked_ids.add(email.guid)
+                    if email.sender == 'noreply@bandcamp.com' and 'download' in email.subject:
+                        logger.info(f'Received email "{email.subject}"')
+                        email = mail_session.get_email(email.guid)
+                        match = link_regex.search(email.body)
+                        if match:
+                            download_url = match.group('url')
+                            driver.get(download_url)
+                            download_file()
+                            expected_emails -= 1
+        except Exception as e:
+            logger.error(e)
     
 if __name__ == '__main__':
     main()
