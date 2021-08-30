@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 import free_bandcamp_downloader
 
@@ -10,7 +10,8 @@ setup(
     install_requires=[
         'selenium',
         'docopt',
-        'python-guerrillamail'
+        'python-guerrillamail',
+        'mutagen'
     ],
     entry_points={
         'console_scripts': [
