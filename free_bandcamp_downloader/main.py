@@ -189,7 +189,7 @@ def download_file(driver, album_data=None):
                 continue
             f['website'] = page_url
             if album_data['tags']:
-                f['genre_tags'] = album_data['tags']
+                f['genre'] = album_data['tags']
             if album_data['about'] or album_data['credits']:
                 comment = ''
                 if album_data['about']:
