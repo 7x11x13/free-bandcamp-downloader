@@ -56,13 +56,6 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 from free_bandcamp_downloader import __version__, config, logger
 
-
-def kill_geckodriver():
-    os.system("taskkill /f /im geckodriver.exe /T")
-
-
-atexit.register(kill_geckodriver)
-
 # Global variables
 arguments = None
 mail_session = None
