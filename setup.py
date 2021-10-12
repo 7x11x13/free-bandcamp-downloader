@@ -11,7 +11,8 @@ setup(
         'selenium',
         'docopt',
         'python-guerrillamail',
-        'mutagen'
+        'mutagen',
+        'beautifulsoup4'
     ],
     entry_points={
         'console_scripts': [
