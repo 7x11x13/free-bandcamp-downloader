@@ -1,6 +1,6 @@
 """Download free albums and tracks from Bandcamp
 Usage:
-    bcdl-free (-a <URL> | -l <URL>)[--force][-d | --dir <dir>][-e | --email <email>]
+    bcdl-free (-a <URL> | -l <URL>)[--force][--no-unzip][-d | --dir <dir>][-e | --email <email>]
         [-z | --zipcode <zipcode>][-c | --country <country>][-f | --format <format>]
     bcdl-free setdefault [-d | --dir <dir>][-e | --email <email>][-z | --zipcode <zipcode>]
         [-c | --country <country>][-f | --format <format>]
@@ -14,6 +14,7 @@ Options:
     -a <URL>                    Download the album at URL
     -l <URL>                    Download all free albums of the label at URL
     --force                     Download even if album has been downloaded before
+    --no-unzip                  Don't unzip downloaded albums
     setdefault                  Set default options
     defaults                    List the default options
     clear                       Clear download history
@@ -163,12 +164,12 @@ def download_file(driver, album_data=None):
             logger.info(f'Downloading {name}, {size / length * 100: .1f}%')
     response.close()
     logger.info(f'Downloaded {file_name}')
-    if file_name.endswith('zip'):
+    if file_name.endswith('zip') and not arguments['--no-unzip']:
         # Unzip archive
         dir_name = file_name[:-4]
         with zipfile.ZipFile(file_name, 'r') as f:
             f.extractall(dir_name)
-        logger.info(f'Unzipped to {dir_name}')
+        logger.info(f'Unzipped to {dir_name}. Use --no-unzip to prevent this')
         os.remove(file_name)
         files = glob.glob(os.path.join(dir_name, "*"))
     else:
