@@ -83,8 +83,8 @@ xpath = {
     'country': '//select[@id="fan_email_country"]',
     'zipcode': '//input[@id="fan_email_postalcode"]',
     'preparing': '//span[@class="preparing-title"]',
-    'formats': '//div[@class="item-format button"]',
-    'download': '//a[@class="item-button"]',
+    'formats': '//select[@id="format-type"]',
+    'download': '//div[@class="download-format-tmp"]/a[1]',
     'albums': '//a[./p[@class="title"]]',
     'album-link': '//div[@class="download-artwork"]/a',
     'album-tags': '//div[contains(@class, "tralbum-tags-nu")]',
@@ -93,14 +93,14 @@ xpath = {
 }
 
 formats = {
-    'FLAC': 'FLAC',
-    'V0MP3': 'MP3 V0',
-    '320MP3': 'MP3 320',
-    'AAC': 'AAC',
-    'Ogg': 'Ogg Vorbis',
-    'ALAC': 'ALAC',
-    'WAV': 'WAV',
-    'AIFF': 'AIFF'
+    'FLAC': 'flac',
+    'V0MP3': 'mp3-v0',
+    '320MP3': 'mp3-320',
+    'AAC': 'aac-hi',
+    'Ogg': 'vorbis',
+    'ALAC': 'alac',
+    'WAV': 'wav',
+    'AIFF': 'aiff-lossless'
 }
 
 
@@ -119,7 +119,7 @@ def get_driver():
     options = Options()
     options.add_argument('--headless')
     driver = webdriver.Firefox(
-        firefox_options=options, service_log_path=os.devnull)
+        options=options, service_log_path=os.devnull)
     driver.implicitly_wait(10)
     return driver
 
@@ -132,18 +132,18 @@ def init_downloaded():
 
 def download_file(driver, album_data=None):
     logger.info('On download page')
-    page_url = driver.find_element_by_xpath(
+    page_url = driver.find_element("xpath", 
         xpath['album-link']).get_attribute('href')
-    page_url = urlsplit(page_url).geturl()
+    page_url = 'https://' + BASE_URL + urlsplit(page_url).path
     if album_data is None:
         album_data = mail_album_data[page_url]
-    driver.find_element_by_xpath(xpath['formats']).click()
+    driver.find_element("xpath", xpath['formats']).click()
     wait()
-    driver.find_element_by_xpath(
-        f'//*[text() = "{formats[options["format"]]}"]').click()
+    driver.find_element("xpath", 
+        f'//option[@value="{formats[options["format"]]}"]').click()
     logger.info(f'Set format to {formats[options["format"]]}')
     wait()
-    button = driver.find_element_by_xpath(xpath['download'])
+    button = driver.find_element("xpath", xpath['download'])
     WebDriverWait(driver, 60).until(EC.visibility_of(button))
     url = button.get_attribute('href')
     response = urllib.request.urlopen(url)
@@ -230,21 +230,21 @@ def download_album(driver, url):
             'tags': None
         }
         try:
-            s = driver.find_element_by_xpath(
+            s = driver.find_element("xpath", 
                 xpath['album-about']).get_attribute('innerHTML')
             s = get_text(s)
             album_data['about'] = s
         except Exception as e:
             logger.info(f"Could not get album about - {e.__class__}: {e}")
         try:
-            s = driver.find_element_by_xpath(
+            s = driver.find_element("xpath", 
                 xpath['album-credits']).get_attribute('innerHTML')
             s = get_text(s)
             album_data['credits'] = s
         except Exception as e:
             logger.info(f"Could not get album credits - {e.__class__}: {e}")
         try:
-            s = driver.find_element_by_xpath(
+            s = driver.find_element("xpath", 
                 xpath['album-tags']).get_attribute('innerHTML')
             tags = {a.text for a in BeautifulSoup(
                 s, features='html.parser', parse_only=SoupStrainer('a'))}
@@ -254,7 +254,7 @@ def download_album(driver, url):
 
         logger.info(f"Album data: {album_data}")
 
-        button = driver.find_element_by_xpath(xpath['buy'])
+        button = driver.find_element("xpath", xpath['buy'])
         if button.text == 'Free Download':
             logger.info(f'{url} is Free Download')
             button.click()
@@ -265,16 +265,16 @@ def download_album(driver, url):
             logger.info(f'{url} is not Free Download')
             button.click()
             wait()
-            price_input = driver.find_element_by_xpath(xpath['price'])
+            price_input = driver.find_element("xpath", xpath['price'])
             price_input.click()
             price_input.send_keys('0')
             wait()
             try:
-                driver.find_element_by_xpath(xpath['download-nyp']).click()
+                driver.find_element("xpath", xpath['download-nyp']).click()
             except:
                 logger.error(f'{url} is not free')
                 return f'{url} is not free'
-            checkout = driver.find_element_by_xpath(xpath['checkout'])
+            checkout = driver.find_element("xpath", xpath['checkout'])
             if checkout.text == 'Download Now':
                 checkout.click()
                 wait()
@@ -283,13 +283,13 @@ def download_album(driver, url):
                 init_email()
                 logger.info(f'{url} requires email')
                 # fill out info
-                driver.find_element_by_xpath(
+                driver.find_element("xpath", 
                     xpath['email']).send_keys(options['email'])
                 wait()
-                driver.find_element_by_xpath(
+                driver.find_element("xpath", 
                     xpath['zipcode']).send_keys(options['zipcode'])
                 wait()
-                Select(driver.find_element_by_xpath(
+                Select(driver.find_element("xpath", 
                     xpath['country'])).select_by_visible_text(options['country'])
                 wait()
                 checkout.click()
@@ -309,8 +309,10 @@ def download_albums(driver, urls):
 
 def download_label(driver, url):
     driver.get(url)
+    global BASE_URL
+    BASE_URL = urlsplit(url).netloc
     links = []
-    for album in driver.find_elements_by_xpath(xpath['albums']):
+    for album in driver.find_elements("xpath", xpath['albums']):
         links.append(album.get_attribute('href'))
     download_albums(driver, links)
 
