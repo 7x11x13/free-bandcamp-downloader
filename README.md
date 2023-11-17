@@ -18,7 +18,7 @@ pip install git+https://github.com/7x11x13/free-bandcamp-downloader
 
 ```
 Usage:
-    bcdl-free (-a <URL> | -l <URL>)[--force][-d | --dir <dir>][-e | --email <email>]
+    bcdl-free (-a <URL> | -l <URL>)[--force][--no-unzip][-d | --dir <dir>][-e | --email <email>]
         [-z | --zipcode <zipcode>][-c | --country <country>][-f | --format <format>]
     bcdl-free setdefault [-d | --dir <dir>][-e | --email <email>][-z | --zipcode <zipcode>]
         [-c | --country <country>][-f | --format <format>]
@@ -32,6 +32,7 @@ Options:
     -a <URL>                    Download the album at URL
     -l <URL>                    Download all free albums of the label at URL
     --force                     Download even if album has been downloaded before
+    --no-unzip                  Don't unzip downloaded albums
     setdefault                  Set default options
     defaults                    List the default options
     clear                       Clear download history
