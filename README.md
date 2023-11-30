@@ -7,7 +7,7 @@ and tags them with data from the Bandcamp page.
 
 Install with pip
 ```
-pip install git+https://github.com/7x11x13/free-bandcamp-downloader
+pip install free-bandcamp-downloader
 ```
 
 ## Usage
