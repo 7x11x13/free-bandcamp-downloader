@@ -5,10 +5,6 @@ and tags them with data from the Bandcamp page.
 
 ## Installation
 
-Requires Firefox and [geckodriver](https://github.com/mozilla/geckodriver/releases)
-
-Make sure geckodriver is in your PATH environment variable
-
 Install with pip
 ```
 pip install git+https://github.com/7x11x13/free-bandcamp-downloader
