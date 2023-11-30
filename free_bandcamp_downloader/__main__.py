@@ -263,7 +263,7 @@ class BCFreeDownloader:
     def download_label(self, url: str, force: bool = False):
         r = self.session.get(url)
         r.raise_for_status()
-        soup = BeautifulSoup(r.text)
+        soup = BeautifulSoup(r.text, "html.parser")
         for album_title in soup.find_all("p", class_="title"):
             album_link = urljoin(url, album_title.parent.attrs["href"])
             logger.info(f"Downloading {album_link}")
