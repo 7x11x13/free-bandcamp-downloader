@@ -265,7 +265,7 @@ class BCFreeDownloader:
         r.raise_for_status()
         soup = BeautifulSoup(r.text)
         for album_title in soup.find_all("p", class_="title"):
-            album_link = album_title.parent.attrs["href"]
+            album_link = urljoin(url, album_title.parent.attrs["href"])
             logger.info(f"Downloading {album_link}")
             try:
                 self.download_album(album_link, force)
