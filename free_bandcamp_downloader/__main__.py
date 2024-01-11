@@ -209,8 +209,10 @@ class BCFreeDownloader:
     @staticmethod
     def _get_album_data_from_soup(soup: BeautifulSoup) -> BCFreeDownloaderAlbumData:
         album_data = BCFreeDownloaderAlbumData()
-        album_data.about = soup.find("div", class_="tralbum-about").get_text("\n")
-        album_data.credits = soup.find("div", class_="tralbum-credits").get_text("\n")
+        about = soup.find("div", class_="tralbum-about")
+        album_data.about = about.get_text("\n") if about else None
+        credits = soup.find("div", class_="tralbum-credits")
+        album_data.credits = credits.get_text("\n") if credits else None
         tags = [tag.get_text() for tag in soup.find_all("a", class_="tag")]
         album_data.tags = ",".join(sorted(tags))
         return album_data
