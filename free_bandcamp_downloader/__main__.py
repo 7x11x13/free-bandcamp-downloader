@@ -256,6 +256,11 @@ class BCFreeDownloader:
                 self.mail_album_data[url] = album_data
             else:
                 logger.info(f"{url} does not require email")
+                if not tralbum_data["freeDownloadPage"]:
+                    logger.warning(
+                        "Album has no download link (probably has no tracks). Skipping..."
+                    )
+                    return
                 self._download_file(
                     tralbum_data["freeDownloadPage"], self.options.format, album_data
                 )
