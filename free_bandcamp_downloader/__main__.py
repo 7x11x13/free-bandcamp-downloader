@@ -37,6 +37,7 @@ Formats:
 import atexit
 import dataclasses
 import glob
+import html
 import json
 import os
 import pprint
@@ -271,8 +272,12 @@ class BCFreeDownloader:
         r = self.session.get(url)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
-        for album_title in soup.find_all("p", class_="title"):
-            album_link = urljoin(url, album_title.parent.attrs["href"])
+        grid = soup.find("ol", id="music-grid")
+        albums = [li.a["href"] for li in grid.find_all("li")]
+        if grid.has_attr("data-client-items"):
+            albums += [obj["page_url"] for obj in json.loads(html.unescape(grid["data-client-items"]))]
+        for album_link in albums:
+            album_link = urljoin(url, album_link)
             logger.info(f"Downloading {album_link}")
             try:
                 self.download_album(album_link, force)
