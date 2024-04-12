@@ -235,7 +235,25 @@ class BCFreeDownloader:
         tralbum_data = soup.find("script", {"data-tralbum": True}).attrs["data-tralbum"]
         tralbum_data = json.loads(tralbum_data)
 
-        if tralbum_data["current"]["minimum_price"] == 0:
+        if not tralbum_data["hasAudio"]:
+            raise BCFreeDownloadError(f"{url} has no audio. Skipping...")
+
+        head_data = soup.head.find("script", {"type": "application/ld+json"}, recursive=False).string
+        head_data = json.loads(head_data)
+        # track releases have this inAlbum key even if they're standalone
+        head_data = head_data.get("inAlbum", head_data)["albumRelease"]
+        # iterate through every additionalProperty of every albumRelease until we get
+        # the one that corresponds to the track release (t) or album release (a)
+        # physical releases are p, and discography offers are b, so this should be fine
+        head_data = next(obj for obj in head_data
+            if next(obj2["value"] for obj2 in obj["additionalProperty"]
+                if obj2["name"] == "item_type"
+            ) in ("t", "a")
+        )
+        if not "offers" in head_data:
+            raise BCFreeDownloadError(f"{url} has no digital download. Skipping...")
+
+        if head_data["offers"]["price"] == 0.0:
             if tralbum_data["current"]["require_email"]:
                 logger.info(f"{url} requires email")
                 email_post_url = urljoin(url, "/email_download")
@@ -257,11 +275,6 @@ class BCFreeDownloader:
                 self.mail_album_data[url] = album_data
             else:
                 logger.info(f"{url} does not require email")
-                if not tralbum_data["freeDownloadPage"]:
-                    logger.warning(
-                        "Album has no download link (probably has no tracks). Skipping..."
-                    )
-                    return
                 self._download_file(
                     tralbum_data["freeDownloadPage"], self.options.format, album_data
                 )
