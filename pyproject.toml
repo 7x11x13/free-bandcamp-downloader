@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "free-bandcamp-downloader"
-version = "0.1.6"
+version = "0.1.7"
 description = "Download free and name-your-price albums from Bandcamp"
 authors = ["7x11x13 <x7x11x13@gmail.com>"]
 license = "MIT"
