@@ -1,7 +1,7 @@
 # free-bandcamp-downloader
 
 Download free and $0 minimum name-your-price albums and tracks from Bandcamp (including ones that are sent to email), 
-and tags them with data from the Bandcamp page. Also able to download items in your collection, if login cookies are
+and tag them with data from the Bandcamp page. Also able to download items in your collection, if login cookies are
 supplied using the `--cookies` argument.
 
 ## Installation
