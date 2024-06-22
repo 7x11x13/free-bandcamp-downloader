@@ -1,7 +1,8 @@
 # free-bandcamp-downloader
 
 Download free and $0 minimum name-your-price albums and tracks from Bandcamp (including ones that are sent to email), 
-and tags them with data from the Bandcamp page.
+and tags them with data from the Bandcamp page. Also able to download items in your collection, if login cookies are
+supplied using the `--cookies` argument.
 
 ## Installation
 
@@ -16,6 +17,7 @@ pip install free-bandcamp-downloader
 Usage:
     bcdl-free (-a <URL> | -l <URL>)[--force][--no-unzip][-d | --dir <dir>][-e | --email <email>]
         [-z | --zipcode <zipcode>][-c | --country <country>][-f | --format <format>]
+        [--cookies <file>][--debug]
     bcdl-free setdefault [-d | --dir <dir>][-e | --email <email>][-z | --zipcode <zipcode>]
         [-c | --country <country>][-f | --format <format>]
     bcdl-free defaults
@@ -37,6 +39,8 @@ Options:
     -z --zipcode <zipcode>      Set zipcode
     -e --email <email>          Set email (set to 'auto' to automatically download from a disposable email)
     -f --format <format>        Set format
+    --cookies <file>            Path to cookies.txt file so albums in your collection can be downloaded
+    --debug                     Set loglevel to debug
 Formats:
     - FLAC
     - V0MP3
