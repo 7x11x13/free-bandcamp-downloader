@@ -75,6 +75,7 @@ class BCFreeDownloaderAlbumData:
     about: str = None
     credits: str = None
     tags: str = None
+    id: str = None
 
 
 class BCFreeDownloadError(Exception):
@@ -106,7 +107,7 @@ class BCFreeDownloader:
         self.options = options
         self.config_dir = config_dir
         self.download_history_file = download_history_file
-        self.downloaded: Set[str] = set()
+        self.downloaded: Set[str] = set()  # can be URL or ID
         self.mail_session = None
         self.mail_album_data: Dict[str, BCFreeDownloaderAlbumData] = {}
         self.unzip = unzip
@@ -162,7 +163,7 @@ class BCFreeDownloader:
 
         try:
             file_name = download(download_url)
-        except:
+        except Exception:
             statdownload_url = download_url.replace("/download/", "/statdownload/")
             with self.session.get(statdownload_url) as r:
                 r.raise_for_status()
@@ -200,10 +201,10 @@ class BCFreeDownloader:
             f["comment"] = comment
             f.save()
         # successfully downloaded file, add to download history
-        self.downloaded.add(album_url)
+        self.downloaded.add(album_data.id)
         if self.download_history_file:
             with open(self.download_history_file, "a") as f:
-                f.write(f"{album_url}\n")
+                f.write(f"{album_data.id}\n")
 
         return album_url
 
@@ -211,16 +212,24 @@ class BCFreeDownloader:
     def _get_album_data_from_soup(soup: BeautifulSoup) -> BCFreeDownloaderAlbumData:
         album_data = BCFreeDownloaderAlbumData()
         about = soup.find("div", class_="tralbum-about")
-        album_data.about = about.get_text("\n") if about else None
         credits = soup.find("div", class_="tralbum-credits")
-        album_data.credits = credits.get_text("\n") if credits else None
         tags = [tag.get_text() for tag in soup.find_all("a", class_="tag")]
+        properties = json.loads(
+            soup.find("meta", attrs={"name": "bc-page-properties"})["content"]
+        )
+        id = f"{properties['item_type']}:{properties['item_id']}"
+
+        album_data.about = about.get_text("\n") if about else None
+        album_data.credits = credits.get_text("\n") if credits else None
         album_data.tags = ",".join(sorted(tags))
+        album_data.id = id
+
         return album_data
 
     def download_album(self, url: str, force: bool = False):
         # Remove url params
         url = urlsplit(url).geturl()
+        url = url.rstrip("/")
         if url in self.downloaded and not force:
             raise BCFreeDownloadError(
                 f"{url} already downloaded. To download anyways, use option --force"
@@ -229,6 +238,11 @@ class BCFreeDownloader:
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         album_data = self._get_album_data_from_soup(soup)
+
+        if album_data.id in self.downloaded and not force:
+            raise BCFreeDownloadError(
+                f"{url} already downloaded. To download anyways, use option --force"
+            )
 
         logger.debug(f"Album data: {album_data}")
 
@@ -245,11 +259,7 @@ class BCFreeDownloader:
         # iterate through every additionalProperty of every albumRelease until we get
         # the one that corresponds to the track release (t) or album release (a)
         # physical releases are p, and discography offers are b, so this should be fine
-        head_data = next(obj for obj in head_data
-            if next(obj2["value"] for obj2 in obj["additionalProperty"]
-                if obj2["name"] == "item_type"
-            ) in ("t", "a")
-        )
+        head_data = next(obj for obj in head_data if obj["@id"] == url)
         if not "offers" in head_data:
             raise BCFreeDownloadError(f"{url} has no digital download. Skipping...")
 
