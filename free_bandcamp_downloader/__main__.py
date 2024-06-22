@@ -2,7 +2,7 @@
 Usage:
     bcdl-free (-a <URL> | -l <URL>)[--force][--no-unzip][-d | --dir <dir>][-e | --email <email>]
         [-z | --zipcode <zipcode>][-c | --country <country>][-f | --format <format>]
-        [--cookies <file>][--debug]
+        [--cookies <file>][--identity <value>][--debug]
     bcdl-free setdefault [-d | --dir <dir>][-e | --email <email>][-z | --zipcode <zipcode>]
         [-c | --country <country>][-f | --format <format>]
     bcdl-free defaults
@@ -25,6 +25,7 @@ Options:
     -e --email <email>          Set email (set to 'auto' to automatically download from a disposable email)
     -f --format <format>        Set format
     --cookies <file>            Path to cookies.txt file so albums in your collection can be downloaded
+    --identity <value>          Value of identity cookie so albums in your collection can be downloaded
     --debug                     Set loglevel to debug
 Formats:
     - FLAC
@@ -110,6 +111,7 @@ class BCFreeDownloader:
         download_history_file: str,
         unzip: bool = True,
         cookies_file: Optional[str] = None,
+        identity: Optional[str] = None,
     ):
         self.options = options
         self.config_dir = config_dir
@@ -121,7 +123,7 @@ class BCFreeDownloader:
         self.session = None
         self._init_email()
         self._init_downloaded()
-        self._init_session(cookies_file)
+        self._init_session(cookies_file, identity)
 
     def _init_email(self):
         if not self.options.email or self.options.email == "auto":
@@ -134,12 +136,14 @@ class BCFreeDownloader:
                 for line in f:
                     self.downloaded.add(line.strip())
 
-    def _init_session(self, cookies_file: Optional[str]):
+    def _init_session(self, cookies_file: Optional[str], identity: Optional[str]):
         self.session = requests.Session()
         if cookies_file:
             cj = MozillaCookieJar(cookies_file)
             cj.load()
             self.session.cookies = cj
+        if identity:
+            self.session.cookies.set("identity", identity)
 
     def _download_file(
         self,
@@ -355,7 +359,7 @@ class BCFreeDownloader:
             else:
                 raise BCFreeDownloadError(
                     f"{url} is not free. If you have purchased this album, "
-                    "use the --cookies flag to pass your login cookies."
+                    "use the --cookies flag or --identity flag to pass your login cookie."
                 )
 
     def download_label(self, url: str, force: bool = False):
@@ -501,6 +505,7 @@ def main():
             config.get("download_history_file"),
             not arguments["--no-unzip"],
             arguments["--cookies"],
+            arguments["--identity"],
         )
         if arguments["-a"]:
             downloader.download_album(arguments["-a"], arguments["--force"])
