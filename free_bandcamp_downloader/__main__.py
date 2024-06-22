@@ -2,6 +2,7 @@
 Usage:
     bcdl-free (-a <URL> | -l <URL>)[--force][--no-unzip][-d | --dir <dir>][-e | --email <email>]
         [-z | --zipcode <zipcode>][-c | --country <country>][-f | --format <format>]
+        [--cookies <file>][--debug]
     bcdl-free setdefault [-d | --dir <dir>][-e | --email <email>][-z | --zipcode <zipcode>]
         [-c | --country <country>][-f | --format <format>]
     bcdl-free defaults
@@ -23,6 +24,8 @@ Options:
     -z --zipcode <zipcode>      Set zipcode
     -e --email <email>          Set email (set to 'auto' to automatically download from a disposable email)
     -f --format <format>        Set format
+    --cookies <file>            Path to cookies.txt file so albums in your collection can be downloaded
+    --debug                     Set loglevel to debug
 Formats:
     - FLAC
     - V0MP3
@@ -39,6 +42,7 @@ import dataclasses
 import glob
 import html
 import json
+import logging
 import os
 import pprint
 import re
@@ -47,8 +51,9 @@ import time
 import zipfile
 from configparser import ConfigParser
 from dataclasses import dataclass
-from typing import Dict, Set
-from urllib.parse import urljoin, urlsplit
+from http.cookiejar import MozillaCookieJar
+from typing import Dict, Optional, Set
+from urllib.parse import parse_qs, urljoin, urlparse, urlsplit
 
 import mutagen
 import pyrfc6266
@@ -76,6 +81,7 @@ class BCFreeDownloaderAlbumData:
     credits: str = None
     tags: str = None
     id: str = None
+    title: str = None
 
 
 class BCFreeDownloadError(Exception):
@@ -103,6 +109,7 @@ class BCFreeDownloader:
         config_dir: str,
         download_history_file: str,
         unzip: bool = True,
+        cookies_file: Optional[str] = None,
     ):
         self.options = options
         self.config_dir = config_dir
@@ -114,7 +121,7 @@ class BCFreeDownloader:
         self.session = None
         self._init_email()
         self._init_downloaded()
-        self._init_session()
+        self._init_session(cookies_file)
 
     def _init_email(self):
         if not self.options.email or self.options.email == "auto":
@@ -127,14 +134,18 @@ class BCFreeDownloader:
                 for line in f:
                     self.downloaded.add(line.strip())
 
-    def _init_session(self):
+    def _init_session(self, cookies_file: Optional[str]):
         self.session = requests.Session()
+        if cookies_file:
+            cj = MozillaCookieJar(cookies_file)
+            cj.load()
+            self.session.cookies = cj
 
     def _download_file(
         self,
         download_page_url: str,
         format: str,
-        album_data: BCFreeDownloaderAlbumData = None,
+        album_data: Optional[BCFreeDownloaderAlbumData] = None,
     ) -> str:
         r = self.session.get(download_page_url)
         r.raise_for_status()
@@ -171,7 +182,14 @@ class BCFreeDownloader:
             with self.session.get(statdownload_url) as r:
                 r.raise_for_status()
                 download_url = self.RETRY_URL_REGEX.search(r.text).group("retry_url")
-            file_name = download(download_url)
+            if download_url:
+                file_name = download(download_url)
+            else:
+                # retry requires email address
+                raise BCFreeDownloadError(
+                    "Download expired. Make sure your payment email is linked "
+                    "to your fan account (Settings > Fan > Payment email addresses)"
+                )
 
         logger.info(f"Downloaded {file_name}")
 
@@ -229,6 +247,40 @@ class BCFreeDownloader:
 
         return album_data
 
+    def _download_purchased_album(
+        self, user_id: int, album_data: BCFreeDownloaderAlbumData
+    ):
+        logger.info("Downloading album from collection...")
+        logger.debug(f"Searching for album: '{album_data.title}'")
+        data = {
+            "fan_id": user_id,
+            "search_key": album_data.title,
+            "search_type": "collection",
+        }
+        r = self.session.post(
+            "https://bandcamp.com/api/fancollection/1/search_items", json=data
+        )
+        r.raise_for_status()
+        results = r.json()
+        tralbums = results["tralbums"]
+        redownload_urls = results["redownload_urls"]
+        try:
+            tralbum = next(
+                filter(
+                    lambda tralbum: f"{tralbum['tralbum_type']}:{tralbum['tralbum_id']}"
+                    == album_data.id,
+                    tralbums,
+                )
+            )
+        except StopIteration:
+            raise BCFreeDownloadError("Could not find album in collection")
+        sale_id = f"{tralbum['sale_item_type']}{tralbum['sale_item_id']}"
+        if sale_id not in redownload_urls:
+            raise BCFreeDownloadError("Could not find album download URL in collection")
+        download_url = redownload_urls[sale_id]
+        logger.debug(f"Got download URL: {download_url}")
+        self._download_file(download_url, self.options.format, album_data)
+
     def download_album(self, url: str, force: bool = False):
         # Remove url params
         url = urlsplit(url).geturl()
@@ -266,6 +318,8 @@ class BCFreeDownloader:
         if not "offers" in head_data:
             raise BCFreeDownloadError(f"{url} has no digital download. Skipping...")
 
+        album_data.title = head_data["name"]
+
         if head_data["offers"]["price"] == 0.0:
             if tralbum_data["current"]["require_email"]:
                 logger.info(f"{url} requires email")
@@ -292,7 +346,17 @@ class BCFreeDownloader:
                     tralbum_data["freeDownloadPage"], self.options.format, album_data
                 )
         else:
-            raise BCFreeDownloadError(f"{url} is not free")
+            if tralbum_data["is_purchased"]:
+                collection_info = soup.find(
+                    "script", {"data-tralbum-collect-info": True}
+                ).attrs["data-tralbum-collect-info"]
+                collection_info = json.loads(collection_info)
+                self._download_purchased_album(collection_info["fan_id"], album_data)
+            else:
+                raise BCFreeDownloadError(
+                    f"{url} is not free. If you have purchased this album, "
+                    "use the --cookies flag to pass your login cookies."
+                )
 
     def download_label(self, url: str, force: bool = False):
         r = self.session.get(url)
@@ -408,6 +472,8 @@ def main():
     config = get_config(data_dir, config_dir)
     options = BCFreeDownloaderOptions()
     arguments = docopt(__doc__, version=__version__)
+    if arguments["--debug"]:
+        logger.setLevel(logging.DEBUG)
     if arguments["-a"] or arguments["-l"] or arguments["setdefault"]:
         # set options
         for field in dataclasses.fields(options):
@@ -434,6 +500,7 @@ def main():
             config_dir,
             config.get("download_history_file"),
             not arguments["--no-unzip"],
+            arguments["--cookies"],
         )
         if arguments["-a"]:
             downloader.download_album(arguments["-a"], arguments["--force"])
