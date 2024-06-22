@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "free-bandcamp-downloader"
-version = "0.3.0"
+version = "0.3.1"
 description = "Download free and name-your-price albums from Bandcamp"
 authors = ["7x11x13 <x7x11x13@gmail.com>"]
 license = "MIT"
@@ -16,8 +16,8 @@ beautifulsoup4 = "^4.12.2"
 tqdm = "^4.66.1"
 pyrfc6266 = "^1.0.2"
 mutagen = "^1.47.0"
-docopt = "^0.6.2"
 1secmail = "^1.1.0"
+docopt-ng = "^0.9.0"
 
 
 [build-system]

@@ -53,7 +53,7 @@ from configparser import ConfigParser
 from dataclasses import dataclass
 from http.cookiejar import MozillaCookieJar
 from typing import Dict, Optional, Set
-from urllib.parse import parse_qs, urljoin, urlparse, urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import mutagen
 import pyrfc6266

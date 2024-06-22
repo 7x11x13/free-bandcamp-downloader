@@ -175,13 +175,14 @@ files = [
 ]
 
 [[package]]
-name = "docopt"
-version = "0.6.2"
-description = "Pythonic argument parser, that will make you smile"
+name = "docopt-ng"
+version = "0.9.0"
+description = "Jazzband-maintained fork of docopt, the humane command line arguments parser."
 optional = false
-python-versions = "*"
+python-versions = ">=3.7"
 files = [
-    {file = "docopt-0.6.2.tar.gz", hash = "sha256:49b3a825280bd66b3aa83585ef59c4a8c82f2c8a522dbe754a8bc8d08c85c491"},
+    {file = "docopt_ng-0.9.0-py3-none-any.whl", hash = "sha256:bfe4c8b03f9fca424c24ee0b4ffa84bf7391cb18c29ce0f6a8227a3b01b81ff9"},
+    {file = "docopt_ng-0.9.0.tar.gz", hash = "sha256:91c6da10b5bb6f2e9e25345829fb8278c78af019f6fc40887ad49b060483b1d7"},
 ]
 
 [[package]]
@@ -386,4 +387,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "110161d32164c3a61a75e6cccd2c99e1d95130f9f810290c30dab899212cc577"
+content-hash = "b167eea04fb32fb22688a58b4a4cab72d2ad7bd468f82b19fb06bb5c20271dd9"
