@@ -141,7 +141,10 @@ class BCFreeDownloader:
         soup = BeautifulSoup(r.text, "html.parser")
         album_url = soup.find("div", class_="download-artwork").find("a").attrs["href"]
         if album_data is None:
-            album_data = self.mail_album_data[album_url]
+            r = self.session.get(album_url)
+            r.raise_for_status()
+            id = self._get_album_data_from_soup(BeautifulSoup(r.text, "html.parser")).id
+            album_data = self.mail_album_data[id]
 
         data = json.loads(soup.find("div", {"id": "pagedata"}).attrs["data-blob"])
         download_url = data["digital_items"][0]["downloads"][self.FORMATS[format]][
@@ -206,7 +209,7 @@ class BCFreeDownloader:
             with open(self.download_history_file, "a") as f:
                 f.write(f"{album_data.id}\n")
 
-        return album_url
+        return album_data.id
 
     @staticmethod
     def _get_album_data_from_soup(soup: BeautifulSoup) -> BCFreeDownloaderAlbumData:
@@ -282,7 +285,7 @@ class BCFreeDownloader:
                 r = r.json()
                 if not r["ok"]:
                     raise ValueError(f"Bad response when sending email address: {r}")
-                self.mail_album_data[url] = album_data
+                self.mail_album_data[album_data.id] = album_data
             else:
                 logger.info(f"{url} does not require email")
                 self._download_file(
@@ -326,10 +329,10 @@ class BCFreeDownloader:
                         match = self.LINK_REGEX.search(email.html_body)
                         if match:
                             download_url = match.group("url")
-                            album_url = self._download_file(
+                            album_id = self._download_file(
                                 download_url, self.options.format
                             )
-                            self.mail_album_data.pop(album_url)
+                            self.mail_album_data.pop(album_id)
 
 
 class BCFreeDownloaderConfig:
