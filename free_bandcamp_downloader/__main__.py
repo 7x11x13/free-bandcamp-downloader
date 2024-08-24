@@ -65,6 +65,7 @@ from docopt import docopt
 from tqdm import tqdm
 
 from free_bandcamp_downloader import __version__, logger
+from free_bandcamp_downloader.bandcamp_http_adapter import BandcampHTTPAdapter
 
 
 @dataclass
@@ -138,6 +139,7 @@ class BCFreeDownloader:
 
     def _init_session(self, cookies_file: Optional[str], identity: Optional[str]):
         self.session = requests.Session()
+        self.session.mount("https://", BandcampHTTPAdapter())
         if cookies_file:
             cj = MozillaCookieJar(cookies_file)
             cj.load()
@@ -319,7 +321,7 @@ class BCFreeDownloader:
         # the one that corresponds to the track release (t) or album release (a)
         # physical releases are p, and discography offers are b, so this should be fine
         head_data = next(obj for obj in head_data if obj["@id"] == url)
-        if not "offers" in head_data:
+        if "offers" not in head_data:
             raise BCFreeDownloadError(f"{url} has no digital download. Skipping...")
 
         album_data.title = head_data["name"]
