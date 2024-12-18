@@ -1,32 +1,37 @@
 """Download free albums and tracks from Bandcamp
 Usage:
-    bcdl-free (-a <URL> | -l <URL>)[--force][--no-unzip][-d | --dir <dir>][-e | --email <email>]
-        [-z | --zipcode <zipcode>][-c | --country <country>][-f | --format <format>]
-        [--cookies <file>][--identity <value>][--debug]
-    bcdl-free setdefault [-d | --dir <dir>][-e | --email <email>][-z | --zipcode <zipcode>]
-        [-c | --country <country>][-f | --format <format>]
+    bcdl-free [--debug] [--force] [--no-unzip] [-al]
+        [-d <dir>] [-e <email>] [-z <zipcode>] [-c <country>] [-f <format>]
+        [--cookies <file>] [--identity <value>] URL...
+    bcdl-free setdefault [-d <dir>] [-e <email>] [-z <zipcode>]
+        [-c <country>] [-f <format>]
     bcdl-free defaults
     bcdl-free clear
-    bcdl-free (-h | --help)
-    bcdl-free --version
+    bcdl-free -h | --help | --version
+
+Arguments:
+    URL            URL to download. Can be a link to a label or release page
+
+Subcommands:
+    defaults       list default configuration options
+    setdefaults    set default configuration options
+    clear          clear default configuration options
+
 Options:
-    -h --help                   Show this screen
-    --version                   Show version
-    -a <URL>                    Download the album at URL
-    -l <URL>                    Download all free albums of the label at URL
-    --force                     Download even if album has been downloaded before
-    --no-unzip                  Don't unzip downloaded albums
-    setdefault                  Set default options
-    defaults                    List the default options
-    clear                       Clear download history
-    -d --dir <dir>              Set download directory
-    -c --country <country>      Set country
-    -z --zipcode <zipcode>      Set zipcode
-    -e --email <email>          Set email (set to 'auto' to automatically download from a disposable email)
-    -f --format <format>        Set format
-    --cookies <file>            Path to cookies.txt file so albums in your collection can be downloaded
-    --identity <value>          Value of identity cookie so albums in your collection can be downloaded
-    --debug                     Set loglevel to debug
+    -h --help                            Show this screen
+    --version                            Show version
+    --force                              Download even if album has been downloaded before
+    --no-unzip                           Don't unzip downloaded albums
+    --debug                              Set loglevel to debug
+    -a -l                                Dummy options, for backwards compatibility
+    -d <dir> --dir <dir>                 Set download directory
+    -c <country> --country <country>     Set country
+    -z <zipcode> --zipcode <zipcode>     Set zipcode
+    -e <email> --email <email>           Set email (set to 'auto' to automatically download from a disposable email)
+    -f <format> --format <format>        Set format
+    --cookies <file>                     Path to cookies.txt file so albums in your collection can be downloaded
+    --identity <value>                   Value of identity cookie so albums in your collection can be downloaded
+
 Formats:
     - FLAC
     - V0MP3
@@ -314,13 +319,15 @@ class BCFreeDownloader:
             raise BCFreeDownloadError(f"{url} has no audio. Skipping...")
 
         head_data = soup.head.find("script", {"type": "application/ld+json"}, recursive=False).string
+
         head_data = json.loads(head_data)
+        head_id = head_data.get("@id")
+        # fallback if a track link was provided
         # track releases have this inAlbum key even if they're standalone
         head_data = head_data.get("inAlbum", head_data)["albumRelease"]
-        # iterate through every additionalProperty of every albumRelease until we get
-        # the one that corresponds to the track release (t) or album release (a)
-        # physical releases are p, and discography offers are b, so this should be fine
-        head_data = next(obj for obj in head_data if obj["@id"] == url)
+        # find the albumRelease object that matches the overall album @id
+        # this will ensure that strictly what is provided as a link is downloaded
+        head_data = next(obj for obj in head_data if obj["@id"] == head_id)
         if "offers" not in head_data:
             raise BCFreeDownloadError(f"{url} has no digital download. Skipping...")
 
@@ -478,15 +485,17 @@ def main():
     config = get_config(data_dir, config_dir)
     options = BCFreeDownloaderOptions()
     arguments = docopt(__doc__, version=__version__)
+
     if arguments["--debug"]:
         logger.setLevel(logging.DEBUG)
-    if arguments["-a"] or arguments["-l"] or arguments["setdefault"]:
-        # set options
+
+    # set options if needed
+    if arguments["URL"] or arguments["setdefault"]:
         for field in dataclasses.fields(options):
             option = field.name
             arg = f"--{option}"
             if arguments[arg]:
-                setattr(options, option, arguments[arg][0])
+                setattr(options, option, arguments[arg])
             else:
                 setattr(options, option, config.get(option))
             if not getattr(options, option):
@@ -499,7 +508,26 @@ def main():
                 f'{options["format"]} is not a valid format. See "bcdl-free -h" for valid formats'
             )
             sys.exit(1)
-    if arguments["-a"] or arguments["-l"]:
+
+    if arguments["setdefault"]:
+        # write arguments to config
+        for field in dataclasses.fields(options):
+            option = field.name
+            arg = f"--{option}"
+            if arguments[arg]:
+                config.set(option, arguments[arg])
+        sys.exit(0)
+
+    if arguments["clear"]:
+        with open(config.get("download_history_file"), "w"):
+            pass
+        sys.exit(0)
+
+    if arguments["defaults"]:
+        print(str(config))
+        sys.exit(0)
+
+    if arguments["URL"]:
         # init downloader
         downloader = BCFreeDownloader(
             options,
@@ -509,25 +537,25 @@ def main():
             arguments["--cookies"],
             arguments["--identity"],
         )
-        if arguments["-a"]:
-            downloader.download_album(arguments["-a"], arguments["--force"])
-        elif arguments["-l"]:
-            downloader.download_label(arguments["-l"], arguments["--force"])
+
+        # only matches if there's a /album/iden or /track/iden part
+        regex_isalbum = re.compile(r'/(album|track)/[a-z0-9-]+')
+        regex_extractlabel = re.compile(r'(?P<label>[a-z0-9-]+)\.bandcamp\.com')
+        for url in arguments["URL"]:
+            # assume album links always resolve to downloadable urls
+            if regex_isalbum.search(url):
+                downloader.download_album(url, arguments["--force"])
+                continue
+
+            # can be any url so long as it's *.bandcamp.com. normalize so that
+            # the "music grid" page can always be returned
+            match = regex_extractlabel.search(url)
+            if match:
+                url = "https://" + match.group("label") + ".bandcamp.com/music"
+            downloader.download_label(url, arguments["--force"])
+
         # finish up downloading
         downloader.wait_for_email_downloads()
-    elif arguments["setdefault"]:
-        # write arguments to config
-        for field in dataclasses.fields(options):
-            option = field.name
-            arg = f"--{option}"
-            if arguments[arg]:
-                config.set(option, arguments[arg][0])
-    elif arguments["defaults"]:
-        print(str(config))
-    elif arguments["clear"]:
-        with open(config.get("download_history_file"), "w"):
-            pass
-
 
 if __name__ == "__main__":
     main()
