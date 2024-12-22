@@ -292,23 +292,16 @@ class BCFreeDownloader:
         logger.debug(f"Got download URL: {download_url}")
         self._download_file(download_url, self.options.format, album_data)
 
-    def download_album(self, url: str, force: bool = False):
-        # Remove url params
-        url = urlsplit(url).geturl()
-        url = url.rstrip("/")
-        if url in self.downloaded and not force:
-            raise BCFreeDownloadError(
-                f"{url} already downloaded. To download anyways, use option --force"
-            )
-        r = self.session.get(url)
-        r.raise_for_status()
-        soup = BeautifulSoup(r.text, "html.parser")
-        album_data = self._get_album_data_from_soup(soup)
+    # check if the album was already downloaded given an id and url
+    # format of id is [at]:<id>
+    def is_downloaded(self, id: str, url: str = ""):
+        return url in self.downloaded or id in self.downloaded
 
-        if album_data.id in self.downloaded and not force:
-            raise BCFreeDownloadError(
-                f"{url} already downloaded. To download anyways, use option --force"
-            )
+    def _download_album(self, soup: BeautifulSoup, force: bool = False):
+        album_data = self._get_album_data_from_soup(soup)
+        url = soup.head.find("meta", attrs={"property": "og:url"})["content"]
+        if not force and self.is_downloaded(album_data.id, url):
+            raise BCFreeDownloadError(f"{url} already downloaded. To download anyways, use option --force")
 
         logger.debug(f"Album data: {album_data}")
 
@@ -325,8 +318,8 @@ class BCFreeDownloader:
         # fallback if a track link was provided
         # track releases have this inAlbum key even if they're standalone
         head_data = head_data.get("inAlbum", head_data)["albumRelease"]
-        # find the albumRelease object that matches the overall album @id
-        # this will ensure that strictly what is provided as a link is downloaded
+        # find the albumRelease object that matches the overall album @id link
+        # this will ensure that strictly the page release is downloaded
         head_data = next(obj for obj in head_data if obj["@id"] == head_id)
         if "offers" not in head_data:
             raise BCFreeDownloadError(f"{url} has no digital download. Skipping...")
@@ -371,21 +364,58 @@ class BCFreeDownloader:
                     "use the --cookies flag or --identity flag to pass your login cookie."
                 )
 
-    def download_label(self, url: str, force: bool = False):
+    def _download_label(self, soup: BeautifulSoup, force: bool = False):
+        albums = []
+        baseurl = soup.head.find("meta", attrs={"property": "og:url"})["content"]
+
+        # bandcamp splits the album between this music-grid html and some json blob
+        grid = soup.find("ol", id="music-grid")
+        for li in grid.find_all("li"):
+            if "display:none" in li.get("style", ""):
+                continue
+            data = li["data-item-id"].split("-")
+            albums += [ { "url": li.a["href"], "id": f'{data[0][0]}:{data[1]}' } ]
+        for obj in json.loads(html.unescape(grid.get("data-client-items", {}))):
+            if obj.get("filtered"):
+                continue
+            albums += [ { "url": obj["page_url"], "id": f'{obj["type"][0]}:{obj["id"]}' } ]
+
+        for album in albums:
+            if album["url"][0] == "/":
+                album["url"] = urljoin(baseurl, album["url"])
+
+            # perform a check here for already-downloaded album to prevent mass requests
+            # to bandcamp for large labels and getting rate limited as a result
+            if not force and self.is_downloaded(album["id"], album["url"]):
+                logger.info(f"{album['url']} already downloaded. To download anyways, use option --force")
+                continue
+
+            logger.info(f"Downloading {album['url']}")
+            r = self.session.get(album["url"])
+            r.raise_for_status()
+            soup = BeautifulSoup(r.text, "html.parser")
+            try:
+                self._download_album(soup, force)
+            except BCFreeDownloadError as ex:
+                logger.info(ex)
+
+    def download_url(self, url: str, force: bool = False):
+        # detect whether it's a release or label page
         r = self.session.get(url)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
-        grid = soup.find("ol", id="music-grid")
-        albums = [li.a["href"] for li in grid.find_all("li")]
-        if grid.has_attr("data-client-items"):
-            albums += [obj["page_url"] for obj in json.loads(html.unescape(grid["data-client-items"]))]
-        for album_link in albums:
-            album_link = urljoin(url, album_link)
-            logger.info(f"Downloading {album_link}")
-            try:
-                self.download_album(album_link, force)
-            except BCFreeDownloadError as ex:
-                logger.info(ex)
+
+        try:
+            url_type = soup.head.find("meta", attrs={"property": "og:type"})["content"]
+        except:
+            raise BCFreeDownloadError(f"{url} does not have an og:type property.")
+
+        if url_type == "album" or url_type == "song":
+            self._download_album(soup, force)
+        elif url_type == "band":
+            self._download_label(soup, force)
+        else:
+            raise BCFreeDownloadError(f"{url} does not have a valid og:type value")
 
     def wait_for_email_downloads(self):
         checked_ids = set()
@@ -538,21 +568,11 @@ def main():
             arguments["--identity"],
         )
 
-        # only matches if there's a /album/iden or /track/iden part
-        regex_isalbum = re.compile(r'/(album|track)/[a-z0-9-]+')
-        regex_extractlabel = re.compile(r'(?P<label>[a-z0-9-]+)\.bandcamp\.com')
         for url in arguments["URL"]:
-            # assume album links always resolve to downloadable urls
-            if regex_isalbum.search(url):
-                downloader.download_album(url, arguments["--force"])
-                continue
-
-            # can be any url so long as it's *.bandcamp.com. normalize so that
-            # the "music grid" page can always be returned
-            match = regex_extractlabel.search(url)
-            if match:
-                url = "https://" + match.group("label") + ".bandcamp.com/music"
-            downloader.download_label(url, arguments["--force"])
+            try:
+                downloader.download_url(url)
+            except BCFreeDownloadError as ex:
+                logger.info(ex)
 
         # finish up downloading
         downloader.wait_for_email_downloads()
