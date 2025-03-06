@@ -127,14 +127,12 @@ class BCFreeDownloader:
         self.mail_album_data: Dict[str, BCFreeDownloaderAlbumData] = {}
         self.unzip = unzip
         self.session = None
-        self._init_email()
         self._init_downloaded()
         self._init_session(cookies_file, identity)
 
     def _init_email(self):
-        if not self.options.email or self.options.email == "auto":
-            self.mail_session = secmail.Client(self.config_dir)
-            self.options.email = self.mail_session.random_email(1, "1secmail.com")[0]
+        self.mail_session = secmail.Client(self.config_dir)
+        self.options.email = self.mail_session.random_email(1, "1secmail.com")[0]
 
     def _init_downloaded(self):
         if self.download_history_file:
@@ -301,7 +299,9 @@ class BCFreeDownloader:
         album_data = self._get_album_data_from_soup(soup)
         url = soup.head.find("meta", attrs={"property": "og:url"})["content"]
         if not force and self.is_downloaded(album_data.id, url):
-            raise BCFreeDownloadError(f"{url} already downloaded. To download anyways, use option --force")
+            raise BCFreeDownloadError(
+                f"{url} already downloaded. To download anyways, use option --force"
+            )
 
         logger.debug(f"Album data: {album_data}")
 
@@ -311,7 +311,9 @@ class BCFreeDownloader:
         if not tralbum_data["hasAudio"]:
             raise BCFreeDownloadError(f"{url} has no audio. Skipping...")
 
-        head_data = soup.head.find("script", {"type": "application/ld+json"}, recursive=False).string
+        head_data = soup.head.find(
+            "script", {"type": "application/ld+json"}, recursive=False
+        ).string
 
         head_data = json.loads(head_data)
         head_id = head_data.get("@id")
@@ -328,6 +330,9 @@ class BCFreeDownloader:
 
         if head_data["offers"]["price"] == 0.0:
             if tralbum_data["current"]["require_email"]:
+                raise BCFreeDownloadError(f"{url} requires email. Skipping...")
+                if not self.options.email or self.options.email == "auto":
+                    self._init_email()
                 logger.info(f"{url} requires email")
                 email_post_url = urljoin(url, "/email_download")
                 r = self.session.post(
@@ -374,11 +379,11 @@ class BCFreeDownloader:
             if "display:none" in li.get("style", ""):
                 continue
             data = li["data-item-id"].split("-")
-            albums += [ { "url": li.a["href"], "id": f'{data[0][0]}:{data[1]}' } ]
+            albums += [{"url": li.a["href"], "id": f"{data[0][0]}:{data[1]}"}]
         for obj in json.loads(html.unescape(grid.get("data-client-items", {}))):
             if obj.get("filtered"):
                 continue
-            albums += [ { "url": obj["page_url"], "id": f'{obj["type"][0]}:{obj["id"]}' } ]
+            albums += [{"url": obj["page_url"], "id": f"{obj['type'][0]}:{obj['id']}"}]
 
         for album in albums:
             if album["url"][0] == "/":
@@ -387,7 +392,9 @@ class BCFreeDownloader:
             # perform a check here for already-downloaded album to prevent mass requests
             # to bandcamp for large labels and getting rate limited as a result
             if not force and self.is_downloaded(album["id"], album["url"]):
-                logger.info(f"{album['url']} already downloaded. To download anyways, use option --force")
+                logger.info(
+                    f"{album['url']} already downloaded. To download anyways, use option --force"
+                )
                 continue
 
             logger.info(f"Downloading {album['url']}")
@@ -576,6 +583,7 @@ def main():
 
         # finish up downloading
         downloader.wait_for_email_downloads()
+
 
 if __name__ == "__main__":
     main()
