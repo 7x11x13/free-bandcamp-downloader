@@ -59,15 +59,15 @@ from configparser import ConfigParser
 from dataclasses import dataclass
 from http.cookiejar import MozillaCookieJar
 from typing import Dict, Optional, Set
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin
 
 import mutagen
 import pyrfc6266
 import requests
-import secmail
 from bs4 import BeautifulSoup
 from docopt import docopt
 from tqdm import tqdm
+from guerrillamail import GuerrillaMailSession
 
 from free_bandcamp_downloader import __version__, logger
 from free_bandcamp_downloader.bandcamp_http_adapter import BandcampHTTPAdapter
@@ -75,20 +75,20 @@ from free_bandcamp_downloader.bandcamp_http_adapter import BandcampHTTPAdapter
 
 @dataclass
 class BCFreeDownloaderOptions:
-    country: str = None
-    zipcode: str = None
-    email: str = None
-    format: str = None
-    dir: str = None
+    country: str = "United States"
+    zipcode: str = "00000"
+    email: str = "auto"
+    format: str = "FLAC"
+    dir: str = "."
 
 
 @dataclass
 class BCFreeDownloaderAlbumData:
-    about: str = None
-    credits: str = None
-    tags: str = None
-    id: str = None
-    title: str = None
+    about: Optional[str]
+    credits: Optional[str]
+    tags: Optional[str]
+    id: str
+    title: Optional[str]
 
 
 class BCFreeDownloadError(Exception):
@@ -126,13 +126,12 @@ class BCFreeDownloader:
         self.mail_session = None
         self.mail_album_data: Dict[str, BCFreeDownloaderAlbumData] = {}
         self.unzip = unzip
-        self.session = None
         self._init_downloaded()
         self._init_session(cookies_file, identity)
 
     def _init_email(self):
-        self.mail_session = secmail.Client(self.config_dir)
-        self.options.email = self.mail_session.random_email(1, "1secmail.com")[0]
+        self.mail_session = GuerrillaMailSession()
+        self.options.email = self.mail_session.get_session_state()["email_address"]
 
     def _init_downloaded(self):
         if self.download_history_file:
@@ -240,7 +239,6 @@ class BCFreeDownloader:
 
     @staticmethod
     def _get_album_data_from_soup(soup: BeautifulSoup) -> BCFreeDownloaderAlbumData:
-        album_data = BCFreeDownloaderAlbumData()
         about = soup.find("div", class_="tralbum-about")
         credits = soup.find("div", class_="tralbum-credits")
         tags = [tag.get_text() for tag in soup.find_all("a", class_="tag")]
@@ -249,12 +247,13 @@ class BCFreeDownloader:
         )
         id = f"{properties['item_type']}:{properties['item_id']}"
 
-        album_data.about = about.get_text("\n") if about else None
-        album_data.credits = credits.get_text("\n") if credits else None
-        album_data.tags = ",".join(sorted(tags))
-        album_data.id = id
-
-        return album_data
+        return BCFreeDownloaderAlbumData(
+            about=about.get_text("\n") if about else None,
+            credits=credits.get_text("\n") if credits else None,
+            tags=",".join(sorted(tags)),
+            id=id,
+            title=None,
+        )
 
     def _download_purchased_album(
         self, user_id: int, album_data: BCFreeDownloaderAlbumData
@@ -330,7 +329,6 @@ class BCFreeDownloader:
 
         if head_data["offers"]["price"] == 0.0:
             if tralbum_data["current"]["require_email"]:
-                raise BCFreeDownloadError(f"{url} requires email. Skipping...")
                 if not self.options.email or self.options.email == "auto":
                     self._init_email()
                 logger.info(f"{url} requires email")
@@ -414,7 +412,7 @@ class BCFreeDownloader:
 
         try:
             url_type = soup.head.find("meta", attrs={"property": "og:type"})["content"]
-        except:
+        except Exception:
             raise BCFreeDownloadError(f"{url} does not have an og:type property.")
 
         if url_type == "album" or url_type == "song":
@@ -429,24 +427,27 @@ class BCFreeDownloader:
         while (expected_emails := len(self.mail_album_data)) > 0:
             logger.info(f"Waiting for {expected_emails} emails from Bandcamp...")
             time.sleep(5)
-            for email in self.mail_session.get_inbox(self.options.email):
-                if email.id not in checked_ids:
-                    checked_ids.add(email.id)
+            for email in self.mail_session.get_email_list():
+                email_id = email.guid
+                if email_id not in checked_ids:
+                    checked_ids.add(email_id)
                     if (
-                        email.from_address.endswith("@email.bandcamp.com")
+                        email.sender == "noreply@bandcamp.com"
                         and "download" in email.subject
                     ):
                         logger.info(f'Received email "{email.subject}"')
-                        email = self.mail_session.get_message(
-                            self.options.email, email.id
-                        )
-                        match = self.LINK_REGEX.search(email.html_body)
+                        content = self.mail_session.get_email(email_id).body
+                        match = self.LINK_REGEX.search(content)
                         if match:
                             download_url = match.group("url")
                             album_id = self._download_file(
                                 download_url, self.options.format
                             )
                             self.mail_album_data.pop(album_id)
+                        else:
+                            logger.error(
+                                f"Could not find download URL in body: {content}"
+                            )
 
 
 class BCFreeDownloaderConfig:
