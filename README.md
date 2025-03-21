@@ -6,10 +6,17 @@ supplied using the `--cookies` or `--identity` argument.
 
 ## Installation
 
-Install with pip
+With pip:
 
 ```
-pip install free-bandcamp-downloader
+$ pip install free-bandcamp-downloader
+$ bcdl-free
+```
+
+With [uv](https://docs.astral.sh/uv/getting-started/installation/):
+
+```
+$ uvx --from free-bandcamp-downloader bcdl-free
 ```
 
 ## Note on passing cookies
