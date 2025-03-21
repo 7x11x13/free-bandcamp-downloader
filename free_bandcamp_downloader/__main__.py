@@ -1,12 +1,12 @@
 """Download free albums and tracks from Bandcamp
 Usage:
-    bcdl-free [--debug] [--force] [--no-unzip] [-al]
-        [-d <dir>] [-e <email>] [-z <zipcode>] [-c <country>] [-f <format>]
-        [--cookies <file>] [--identity <value>] URL...
     bcdl-free setdefault [-d <dir>] [-e <email>] [-z <zipcode>]
         [-c <country>] [-f <format>]
     bcdl-free defaults
     bcdl-free clear
+    bcdl-free [--debug] [--force] [--no-unzip] [-al]
+        [-d <dir>] [-e <email>] [-z <zipcode>] [-c <country>] [-f <format>]
+        [--cookies <file>] [--identity <value>] URL...
     bcdl-free -h | --help | --version
 
 Arguments:
