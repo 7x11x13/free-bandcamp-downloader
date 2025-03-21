@@ -3,3 +3,4 @@ env
 *.log
 __pycache__
 notes
+.DS_Store
