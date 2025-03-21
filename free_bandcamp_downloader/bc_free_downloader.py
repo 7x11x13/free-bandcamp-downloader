@@ -16,9 +16,10 @@ from http.cookiejar import MozillaCookieJar
 from typing import Dict, List, Optional, Tuple, TypedDict
 from urllib.parse import urljoin
 from guerrillamail import GuerrillaMailSession
+from urllib3 import Retry
 
 from free_bandcamp_downloader import logger
-from free_bandcamp_downloader.bandcamp_http_adapter import *
+from free_bandcamp_downloader.bandcamp_http_adapter import BandcampHTTPAdapter
 
 
 class DownloadRet(TypedDict):
@@ -101,10 +102,7 @@ class BCFreeDownloader:
     def _init_session(self):
         self.session = requests.Session()
         retries = Retry(
-            total = 10,
-            backoff_factor = 10,
-            backoff_max = 60,
-            allowed_methods = {"POST", "GET"}
+            total=10, backoff_factor=10, backoff_max=60, allowed_methods={"POST", "GET"}
         )
         self.session.mount("https://", BandcampHTTPAdapter(max_retries=retries))
         if self.options.cookies:
@@ -116,7 +114,6 @@ class BCFreeDownloader:
 
     def _download_file(self, download_page_url: str, format: str) -> DownloadRet:
         soup = self.get_url_soup(download_page_url)
-        album_url = soup.find("div", class_="download-artwork").find("a").attrs["href"]
 
         data = json.loads(soup.find("div", {"id": "pagedata"}).attrs["data-blob"])[
             "digital_items"
@@ -189,7 +186,7 @@ class BCFreeDownloader:
         self, user_id: int, tralbum_data: Dict
     ) -> DownloadRet:
         logger.info("Downloading album from collection...")
-        logger.debug(f"Searching for album: '{tralbum_data["current"]["title"]}'")
+        logger.debug(f"Searching for album: '{tralbum_data['current']['title']}'")
         data = {
             "fan_id": user_id,
             "search_key": tralbum_data["current"]["title"],
@@ -200,18 +197,18 @@ class BCFreeDownloader:
         )
         tralbums = results["tralbums"]
         redownload_urls = results["redownload_urls"]
-        wanted_id = f"{tralbum_data["item_type"][0]}:{tralbum_data["id"]}"
+        wanted_id = f"{tralbum_data['item_type'][0]}:{tralbum_data['id']}"
         try:
             tralbum = next(
                 filter(
-                    lambda tralbum: f"{tralbum["tralbum_type"]}:{tralbum["tralbum_id"]}"
+                    lambda tralbum: f"{tralbum['tralbum_type']}:{tralbum['tralbum_id']}"
                     == wanted_id,
                     tralbums,
                 )
             )
         except StopIteration:
             raise BCFreeDownloadError("Could not find album in collection")
-        sale_id = f"{tralbum["sale_item_type"]}{tralbum["sale_item_id"]}"
+        sale_id = f"{tralbum['sale_item_type']}{tralbum['sale_item_id']}"
         if sale_id not in redownload_urls:
             raise BCFreeDownloadError("Could not find album download URL in collection")
         download_url = redownload_urls[sale_id]
@@ -299,7 +296,7 @@ class BCFreeDownloader:
         info = BCFreeDownloader.get_label_info(soup)
 
         for release in info["releases"]:
-            logger.info(f"Downloading {release["url"]}")
+            logger.info(f"Downloading {release['url']}")
 
             soup = self.get_url_soup(release["url"])
             try:

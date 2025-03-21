@@ -47,15 +47,20 @@ Formats:
 """
 
 import dataclasses
+import logging
 import sys
 import os
 import pprint
-from typing import Set, Tuple
+from typing import List, Set, Tuple
 from docopt import docopt
 from configparser import ConfigParser
 
 from free_bandcamp_downloader import __version__
-from free_bandcamp_downloader.bc_free_downloader import *
+from free_bandcamp_downloader.bc_free_downloader import (
+    AlbumInfo,
+    BCFreeDownloader,
+    BCFreeDownloaderOptions,
+)
 from free_bandcamp_downloader import logger
 
 
@@ -101,7 +106,9 @@ class Config:
 def options_from_config(config: Config):
     options = BCFreeDownloaderOptions()
     for field in dataclasses.fields(options):
-        setattr(options, field.name, config.parser["free-bandcamp-downloader"][field.name])
+        setattr(
+            options, field.name, config.parser["free-bandcamp-downloader"][field.name]
+        )
     return options
 
 
