@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 from dataclasses import dataclass
 from http.cookiejar import MozillaCookieJar
-from typing import Dict, List, Optional, Tuple, TypedDict
+from typing import Dict, List, Literal, Optional, Tuple, TypedDict, Union
 from urllib.parse import urljoin
 from guerrillamail import GuerrillaMailSession
 from urllib3 import Retry
@@ -21,9 +21,11 @@ from urllib3 import Retry
 from free_bandcamp_downloader import logger
 from free_bandcamp_downloader.bandcamp_http_adapter import BandcampHTTPAdapter
 
+TralbumId = Tuple[Literal["album", "track", "url"], Union[int, str]]
+
 
 class DownloadRet(TypedDict):
-    id: Tuple[str, int]
+    id: TralbumId
     file_name: str
 
 
@@ -37,7 +39,7 @@ class AlbumInfo(TypedDict):
 
 class LabelReleaseInfo(TypedDict):
     type: str
-    id: Tuple[str, int]
+    id: TralbumId
     band_id: int
     url: str
     release_info: Optional[AlbumInfo]
@@ -49,7 +51,7 @@ class LabelInfo(TypedDict):
 
 
 class PageInfo(TypedDict):
-    type: str
+    type: Literal["album", "song", "band"]
     info: LabelInfo | AlbumInfo
 
 
@@ -86,7 +88,7 @@ class BCFreeDownloader:
     def __init__(self, options: BCFreeDownloaderOptions):
         self.options = options
         self.mail_session = None
-        self.queued_emails = {}  # { ("album"|"track", id): {info} }
+        self.queued_emails: Dict[TralbumId, AlbumInfo] = {}
         self.session = None
         self.email = None
         self._init_session()
@@ -311,15 +313,15 @@ class BCFreeDownloader:
     # returns either the result of download_album or download_label
     # with the `page_type` set to album|song|band
     # exception if download error
-    def download_url(self, url: str, force: bool = False):
+    def download_url(self, url: str):
         soup = self.get_url_soup(url)
 
         page_info = self.get_page_info(soup)
         page_type = page_info.get("type")
         if page_type == "album" or page_type == "song":
-            ret = self.download_album(soup, force)
+            ret = self.download_album(soup)
         else:
-            ret = self.download_label(soup, force)
+            ret = self.download_label(soup)
 
         ret["page_type"] = page_type
 

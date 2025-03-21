@@ -54,7 +54,7 @@ import logging
 import sys
 import os
 import pprint
-from typing import List, Set, Tuple
+from typing import List, Set
 from docopt import docopt
 from configparser import ConfigParser
 
@@ -63,6 +63,7 @@ from free_bandcamp_downloader.bc_free_downloader import (
     AlbumInfo,
     BCFreeDownloader,
     BCFreeDownloaderOptions,
+    TralbumId,
 )
 from free_bandcamp_downloader import logger
 
@@ -141,17 +142,17 @@ def get_data_dir() -> str:
     return data_dir
 
 
-def is_downloaded(downloaded_set, id: Tuple[str, int], url: str = None) -> bool:
+def is_downloaded(downloaded_set, id: TralbumId, url: str = None) -> bool:
     return id in downloaded_set or url in downloaded_set
 
 
-def add_to_dl_file(config: Config, id: Tuple[str, int]):
+def add_to_dl_file(config: Config, id: TralbumId):
     history_file = config.parser["free-bandcamp-downloader"]["download-history-file"]
     with open(history_file, "a") as f:
         f.write(f"{id[0][0]}:{id[1]}\n")
 
 
-def get_downloaded(config: Config) -> Set[Tuple[str, int | str]]:
+def get_downloaded(config: Config) -> Set[TralbumId]:
     history_file = config.parser["free-bandcamp-downloader"]["download-history-file"]
     if not os.path.exists(history_file):
         with open(history_file, "w") as f:
