@@ -424,12 +424,15 @@ class BCFreeDownloader:
                     "band_id": int(li["data-band-id"]),
                 }
             )
-        for obj in json.loads(html.unescape(grid.get("data-client-items", {}))):
-            if obj.get("filtered"):
-                continue
-            # normalize to fit the other half
-            obj["url"] = obj.pop("page_url")
-            releases.append(obj)
+
+        client_items = grid.get("data-client-items")
+        if client_items:
+            for obj in json.loads(html.unescape(client_items)):
+                if obj.get("filtered"):
+                    continue
+                # normalize to fit the other half
+                obj["url"] = obj.pop("page_url")
+                releases.append(obj)
 
         # fixup local urls into global ones
         for release in releases:
