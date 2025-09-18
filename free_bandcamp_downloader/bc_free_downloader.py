@@ -249,7 +249,7 @@ class BCFreeDownloader:
             dlret = self._download_file(
                 tralbum_data["freeDownloadPage"], self.options.format
             )
-        elif album_release["offers"]["price"] == 0.0:
+        elif "offers" in album_release and album_release["offers"]["price"] == 0.0:
             logger.info(f"{url} requires email")
             if self.mail_session is None:
                 self._init_email()
