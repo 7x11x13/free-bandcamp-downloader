@@ -1,8 +1,5 @@
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
-
-
-# https://github.com/urllib3/urllib3/issues/3439#issuecomment-2306400349
 class BandcampHTTPAdapter(HTTPAdapter):
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
         ctx = create_urllib3_context()
